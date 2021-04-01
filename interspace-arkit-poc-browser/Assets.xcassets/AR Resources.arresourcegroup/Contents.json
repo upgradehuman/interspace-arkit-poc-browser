@@ -1,0 +1,20 @@
+{
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  },
+  "resources" : [
+    {
+      "filename" : "anchor_02.arreferenceimage"
+    },
+    {
+      "filename" : "anchor_03.arreferenceimage"
+    },
+    {
+      "filename" : "anchor_07.arreferenceimage"
+    },
+    {
+      "filename" : "anchor_08.arreferenceimage"
+    }
+  ]
+}
