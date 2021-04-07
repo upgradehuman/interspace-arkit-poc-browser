@@ -25,7 +25,7 @@ struct Vec4: Codable {
 // For decoding JSON text storing an anchor
 struct Anchor: Codable {
     let id: String
-    let image_url: String
+    let image_filename: String
     let width_cm: Float
     let height_cm: Float
     let position: Vec3
@@ -37,7 +37,7 @@ struct Anchor: Codable {
 // class reponsible for all app functionality thus far
 class ViewController: UIViewController, ARSessionDelegate {
     
-    // the object that is/manages the view for a RealityKit app
+    // the object that is/manages the view for a RealityKit appe
     @IBOutlet var arView: ARView!
     
     // the object for configuring how the the ARSession operates
@@ -48,6 +48,15 @@ class ViewController: UIViewController, ARSessionDelegate {
     
     // the object that deals with downloading web data
     let session = URLSession.shared
+    
+    // create a URL object with the base url where interspace-python-poc-server can be reached
+    let baseUrl = URL(string: "http://10.100.0.204:8080")!
+    
+    // the array of interspace anchors
+    var loaded_anchors: [Anchor] = []
+    
+    // the interspace anchor which is setup to be the world 0, 0, 0
+    var origin_anchor: Anchor? = nil
     
     // ask the Interspace for a list of anchors
     func requestAnchors(baseUrl: URL) {
@@ -94,12 +103,25 @@ class ViewController: UIViewController, ARSessionDelegate {
         arConfig.detectionImages = detectionImages
         // reload (somehow without stopping) the ARSession, with its new images to detect
         arView.session.run(arConfig)
+        
+        for anchor in anchors {
+            if anchor.is_origin == true {
+                origin_anchor = anchor
+            }
+        }
+        if origin_anchor == nil {
+            print("no origin anchor found on the interspace, setting origin on the first detection")
+        }
+        else {
+            print("origin anchor loaded")
+        }
+        loaded_anchors = anchors
     }
     
     // load the image a passed anchor specifies (with a url) into an ARReferenceImage
     func getDetectionImage(anchor: Anchor) -> ARReferenceImage? {
         // create a URL object from the passed anchor's image url string
-        let url = URL(string: anchor.image_url)!
+        let url = URL(string: "/image/" + anchor.image_filename, relativeTo: baseUrl)!
         // create an object that stores the width in meters derived from the anchor's width in cm
         let width = CGFloat(anchor.width_cm/100)
         // define the orientation for the ARReferenceImage (this isnt the anchor's 3D orientation)
@@ -136,16 +158,31 @@ class ViewController: UIViewController, ARSessionDelegate {
         arView.debugOptions.insert(.showSceneUnderstanding)
         // tell RealityKit to start the ARSession with the config so far
         arView.session.run(arConfig)
-        // create a URL object with the base url where interspace-python-poc-server can be reached
-        let url = URL(string: "http://10.100.0.204:8080")!
         // request the anchors from it (this will run a chain of functions, mostly out of the main thread)
-        requestAnchors(baseUrl: url)
+        requestAnchors(baseUrl: baseUrl)
     }
     
     // function called whenever an ARAnchor is added (including when images are detected)
     func session(_ session: ARSession, didAdd anchors: [ARAnchor]) {
         // for each ARAnchor that is an ARImageAnchor (a detected image)
         anchors.compactMap { $0 as? ARImageAnchor }.forEach {
+            for anchor in loaded_anchors {
+                if anchor.id == $0.referenceImage.name {
+                    if origin_anchor == nil {
+                        print("initial anchor found, making it the origin")
+                        let url = URL(string: "/set_origin_anchor/" + anchor.id, relativeTo: baseUrl)!
+                        if let status = try? String(contentsOf: url) {
+                            print(status)
+                            
+                        }
+                        
+                    }
+                    else {
+                        print("origin anchor is present")
+                    }
+                }
+            }
+            
             // create a RealityKit AnchorEntity instance
             let anchorEntity = AnchorEntity()
             // load an instance of a 'Box' from RealityKit, defined in the Experience.rcproject
